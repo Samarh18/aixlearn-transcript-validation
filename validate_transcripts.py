@@ -7,19 +7,17 @@ import csv
 USER_MARKER = "<<<USER_TURN>>>"
 LLM_MARKER = "<<<LLM_TURN>>>"
 
-# --- Legacy Format A markers (informational only, no longer enforced) ---
+# --- Legacy Format A markers  ---
 BEGIN_MARKER = "BEGIN_LLM_TRANSCRIPT_"
 END_MARKER = "END_LLM_TRANSCRIPT_"
 CONTINUED_MARKER = "CONTINUED_IN_NEXT_RESPONSE"
 
-# --- Format B labels (kept in sync with the Qualtrics v9 validator) ---
+# --- Format B labels  ---
 STUDENT_LABELS = [
     "User", "You", "Me", "I", "Student", "Human", "Prompt",
     "אני", "משתמש", "סטודנט", "פרומפט שלי", "פרומפט",
 ]
 
-# "Answer" is deliberately NOT here - it appears as a section header
-# inside model prose and causes false passes.
 MODEL_LABELS = [
     "ChatGPT", "Chat GPT", "GPT", "Chat", "Gemini", "Claude", "Copilot",
     "Model", "Assistant", "AI assistant", "Math tutor", "Bot", "AI", "Response",
@@ -70,12 +68,7 @@ def load_file_text(filepath):
         (text, reason)
         text   -> the decoded string (never None, may be "" if unreadable)
         reason -> None if fully clean, otherwise a short string explaining
-                  what was wrong (e.g. "not a text file", "bad encoding").
-
-    Kept lenient on purpose (unlike the Qualtrics JS side): tries utf-8-sig
-    and windows-1255 in addition to utf-8, and falls back to a lenient
-    decode with errors="replace" so a batch scan can still report on a
-    misencoded file instead of skipping it.
+                  what was wrong.
     """
     try:
         with open(filepath, "rb") as f:
@@ -200,7 +193,7 @@ def check_not_empty(text):
     return True, None
 
 
-# --- Format A: hard-fail checks (match v9) ---
+# --- Format A: hard-fail checks ---
 
 def check_has_user_marker(text):
     if text.count(USER_MARKER) == 0:
@@ -214,7 +207,7 @@ def check_has_llm_marker(text):
     return True, None
 
 
-# --- Format B: hard-fail checks (match v9) ---
+# --- Format B: hard-fail checks ---
 
 def check_has_student_label(text):
     if not any(cat == "student" for cat, _ in find_label_lines(text)):
@@ -233,11 +226,6 @@ CHECKS_FORMAT_B = [check_has_student_label, check_has_model_label]
 
 
 # --- Legacy checks: informational only, do NOT affect pass/fail ---
-# These were hard-fail checks in v0, but the Qualtrics v9 validator
-# deliberately dropped them (empty turns and consecutive same-speaker
-# turns are allowed on purpose; begin/end/continued markers were an
-# earlier scheme that's no longer part of the format). Kept here as
-# signal for manually reviewing a batch, not as gating logic.
 
 def check_has_begin_marker(text):
     if BEGIN_MARKER not in text:
@@ -425,8 +413,6 @@ def validate_file(filepath):
             "info_flags": info_flags,
         }
 
-    # Raw chat-UI/export-tool dumps are checked first, before format
-    # detection - matches v9's ordering.
     artifacts = find_artifacts(text)
     if artifacts:
         return {
